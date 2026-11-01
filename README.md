@@ -181,7 +181,7 @@ Use this as the baseline in any host:
 - **Command:** `npx`
 - **Args:** `["-y", "spaceship-mcp"]`
 - **Required env vars:** `SPACESHIP_API_KEY`, `SPACESHIP_API_SECRET`
-- **Optional env vars:** `SPACESHIP_CACHE_TTL`, `SPACESHIP_MAX_RETRIES`, `SPACESHIP_TOOLSETS`, `SPACESHIP_DYNAMIC_TOOLS` (see [Configuration](#configuration))
+- **Optional env vars:** `SPACESHIP_CACHE_TTL`, `SPACESHIP_MAX_RETRIES`, `SPACESHIP_TOOLSETS` (see [Configuration](#configuration))
 
 Host key mapping:
 
@@ -246,17 +246,14 @@ What is host/vendor-specific (not portable as-is):
 - **SellerHub integration** — list domains for sale and generate checkout links
 - **DNS alignment analysis** — compare expected vs actual records to catch misconfigurations
 - **WHOIS privacy and contact management** with TLD-specific attribute support
-- **Input and output validation** via Zod schemas on every tool for safe, predictable operations
-- **5 MCP Resources** for passive context loading (domain list, domain details, DNS records, contacts, SellerHub)
-- **9 MCP Prompts** — 5 guided workflows and 4 with argument auto-complete
-- **Resource subscriptions** with polling-based change detection and automatic notifications
+- **Input validation** via Zod schemas on every tool for safe, predictable operations
+- **8 MCP Prompts** — 5 guided workflows and 3 with argument auto-complete
 - **Response caching** with configurable TTL and automatic invalidation on writes
 - **Rate limit handling** with exponential backoff and `Retry-After` header support
 - **Toolset filtering** to expose only the tool categories you need
-- **Dynamic tool loading** mode for agents with constrained context windows
 - **Actionable error messages** with context-aware recovery suggestions
 - **Docker support** for containerized deployment
-- **453 unit tests** with near-complete coverage
+- **Unit tests** covering the API client and every tool
 
 ## Configuration
 
@@ -264,10 +261,12 @@ What is host/vendor-specific (not portable as-is):
 
 | Variable | Description |
 |---|---|
-| `SPACESHIP_API_KEY` | Your Spaceship API key |
-| `SPACESHIP_API_SECRET` | Your Spaceship API secret |
+| `SPACESHIP_API_KEY` | Your Spaceship API key, or a 1Password reference like `op://Private/spaceship-api/username` |
+| `SPACESHIP_API_SECRET` | Your Spaceship API secret, or a 1Password reference like `op://Private/spaceship-api/credential` |
 
 Generate your credentials in the [Spaceship API Manager](https://www.spaceship.com/application/api-manager/).
+
+Values starting with `op://` are read through the 1Password CLI (`op read`) on the first API call, not at startup, so the server starts without a 1Password prompt and only asks once a tool actually hits the API. You need `op` installed and signed in.
 
 ### Optional
 
@@ -276,7 +275,6 @@ Generate your credentials in the [Spaceship API Manager](https://www.spaceship.c
 | `SPACESHIP_CACHE_TTL` | Response cache lifetime in seconds. Set to `0` to disable caching. | `120` |
 | `SPACESHIP_MAX_RETRIES` | Maximum retry attempts for rate-limited (429) requests with exponential backoff. | `3` |
 | `SPACESHIP_TOOLSETS` | Comma-separated list of tool categories to enable (see [Toolset Filtering](#toolset-filtering)). | All toolsets |
-| `SPACESHIP_DYNAMIC_TOOLS` | Set to `true` to enable dynamic tool loading mode (see [Dynamic Tool Loading](#dynamic-tool-loading)). | `false` |
 
 ## API Key Setup
 
@@ -444,20 +442,6 @@ Each DNS record type has a dedicated tool with type-safe parameters and validati
 |---|---|
 | `check_dns_alignment` | Compare expected vs actual DNS records to detect missing or unexpected entries |
 
-## MCP Resources
-
-Resources provide passive context that clients can load without calling tools.
-
-| Resource | URI | Description |
-|---|---|---|
-| Domain List | `spaceship://domains` | All domains in the account |
-| Domain Details | `spaceship://domains/{domain}` | Detailed info for a specific domain |
-| DNS Records | `spaceship://domains/{domain}/dns` | DNS records for a specific domain |
-| Domain Contacts | `spaceship://domains/{domain}/contacts` | Contact assignments for a domain |
-| SellerHub Listings | `spaceship://sellerhub` | All SellerHub marketplace listings |
-
-Clients that support resource subscriptions will receive automatic notifications when data changes (polled every 30 seconds).
-
 ## MCP Prompts
 
 Prompts provide guided workflows that clients can present as slash commands or quick actions.
@@ -478,7 +462,6 @@ These prompts support argument auto-complete for domain names and common values:
 
 | Prompt | Description |
 |---|---|
-| `domain-lookup` | Look up domain details with domain name auto-complete |
 | `dns-records` | List DNS records with domain and record type auto-complete |
 | `set-privacy` | Set WHOIS privacy with domain and level auto-complete |
 | `update-nameservers` | Update nameservers with domain and provider auto-complete |
@@ -502,28 +485,6 @@ SPACESHIP_TOOLSETS=dns,domains
 | `availability` | Domain availability checking |
 
 When not set, all toolsets are enabled. Invalid names are ignored; if all names are invalid, all toolsets are enabled as a fallback.
-
-## Dynamic Tool Loading
-
-For agents with constrained context windows, dynamic mode replaces all 48 tools with 3 lightweight meta-tools:
-
-```bash
-SPACESHIP_DYNAMIC_TOOLS=true
-```
-
-| Meta-Tool | Description |
-|---|---|
-| `search_tools` | Search available tools by keyword to discover what's available |
-| `describe_tools` | Get full parameter schemas for one or more tools before executing |
-| `execute_tool` | Execute any Spaceship tool by name with arguments |
-
-**Workflow:**
-
-1. `search_tools({ query: "dns" })` — discover relevant tools
-2. `describe_tools({ tools: ["create_a_record"] })` — get the full parameter schema
-3. `execute_tool({ tool: "create_a_record", arguments: { ... } })` — execute
-
-Resources, prompts, and completions remain available in dynamic mode.
 
 ## Security Notes
 
@@ -580,14 +541,10 @@ src/
   spaceship-client.ts         # Spaceship API HTTP client with caching and retry
   cache.ts                    # TTL-based in-memory response cache
   schemas.ts                  # Shared Zod validation schemas
-  output-schemas.ts           # Zod output schemas for all 48 tools
   types.ts                    # TypeScript interfaces
   tool-result.ts              # Error formatting with recovery suggestions
-  resources.ts                # MCP Resources (5 resources)
-  resource-subscriptions.ts   # Polling-based resource change notifications
-  prompts.ts                  # MCP Prompts (5 guided workflows)
-  completions.ts              # MCP Prompts with argument auto-complete (4 prompts)
-  dynamic-tools.ts            # Dynamic tool loading meta-tools
+  prompts.ts                  # MCP Prompts (8 prompts, with argument auto-complete)
+  credentials.ts              # Resolves op:// credential references via the 1Password CLI
   dns-utils.ts                # DNS record formatting utilities
   update-checker.ts           # NPM update notifications
   tools/
