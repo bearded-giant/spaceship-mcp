@@ -46,12 +46,12 @@ describe("SpaceshipClient", () => {
       expect(url).toContain("ex%20ample.com");
     });
 
-    it("strips trailing slash from baseUrl", () => {
+    it("strips trailing slash from baseUrl", async () => {
       const c = new SpaceshipClient("k", "s", "https://api.test.com/");
       // The baseUrl should have the trailing slash removed
       // We can verify by making a request
       mockFetch.mockResolvedValueOnce(jsonResponse({ items: [], total: 0 }));
-      c.listDnsRecords("example.com", { take: 10, skip: 0 });
+      await c.listDnsRecords("example.com", { take: 10, skip: 0 });
       const [url] = mockFetch.mock.calls[0];
       expect(url).not.toContain("//v1");
     });

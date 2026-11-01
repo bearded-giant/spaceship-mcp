@@ -1,4 +1,5 @@
 import { TtlCache } from "./cache.js";
+import { resolveCredential } from "./credentials.js";
 import { extractComparableFields, recordFingerprint } from "./dns-utils.js";
 import type {
   DnsRecord,
@@ -53,6 +54,7 @@ export class SpaceshipClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly apiSecret: string;
+  private credentials?: Promise<[string, string]>;
   private readonly retry: RetryOptions;
   private readonly cache: TtlCache;
   private readonly cachingEnabled: boolean;
@@ -708,10 +710,21 @@ export class SpaceshipClient {
       : response.text().catch(() => "");
   }
 
+  private resolveCredentials(): Promise<[string, string]> {
+    return this.credentials ??= Promise.all([
+      resolveCredential(this.apiKey),
+      resolveCredential(this.apiSecret),
+    ]).catch((error: unknown) => {
+      this.credentials = undefined;
+      throw error;
+    });
+  }
+
   private async rawRequest(path: string, init?: RequestInit): Promise<Response> {
+    const [apiKey, apiSecret] = await this.resolveCredentials();
     const headers = new Headers(init?.headers);
-    headers.set("X-API-Key", this.apiKey);
-    headers.set("X-API-Secret", this.apiSecret);
+    headers.set("X-API-Key", apiKey);
+    headers.set("X-API-Secret", apiSecret);
     headers.set("Content-Type", "application/json");
 
     const url = `${this.baseUrl}${path}`;
