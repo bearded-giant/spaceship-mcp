@@ -15,7 +15,7 @@ startCommand:
   commandFunction: |
     (config) => ({
       command: 'npx',
-      args: ['-y', 'spaceship-mcp'],
+      args: ['-y', '@bearded-giant/spaceship-mcp'],
       env: {
         SPACESHIP_API_KEY: config.apiKey,
         SPACESHIP_API_SECRET: config.apiSecret

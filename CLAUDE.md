@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Stdio MCP server for the Spaceship registrar API (domains, DNS, contacts, SellerHub). TypeScript, ESM, Node >= 20, pnpm. Fork of `BartWaardenburg/spaceship-mcp` (git remote `upstream`); not published to npm, so clients run `node dist/index.js` from a local checkout. The README's "Change from upstream" table lists every intentional divergence; add a row when you diverge again.
 
+Package identity is the fork's own, unpublished: npm `@bearded-giant/spaceship-mcp`, MCP registry `io.github.bearded-giant/spaceship-mcp`. `package.json` `mcpName` must equal `server.json` `name`, and `server.json` versions must match `package.json` (release-it doesn't bump them).
+
 ## Commands
 
 ```bash

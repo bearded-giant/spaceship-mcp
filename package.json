@@ -1,5 +1,5 @@
 {
-  "name": "spaceship-mcp",
+  "name": "@bearded-giant/spaceship-mcp",
   "version": "0.3.0",
   "packageManager": "pnpm@10.28.1",
   "description": "MCP server for managing domains, DNS records, and marketplace listings via the Spaceship API",
@@ -41,7 +41,7 @@
   ],
   "author": "Bart Waardenburg",
   "license": "MIT",
-  "mcpName": "io.github.BartWaardenburg/spaceship-mcp",
+  "mcpName": "io.github.bearded-giant/spaceship-mcp",
   "bugs": {
     "url": "https://github.com/bearded-giant/spaceship-mcp/issues"
   },
