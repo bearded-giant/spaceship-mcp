@@ -17,7 +17,7 @@ pnpm vitest run src/spaceship-client.test.ts -t "saveDnsRecords"   # one file / 
 pnpm dev              # tsx src/index.ts; needs SPACESHIP_API_KEY and SPACESHIP_API_SECRET
 ```
 
-CI (`.github/workflows/ci.yml`) runs `pnpm typecheck` and `pnpm test` on Node 20. `pnpm release` is upstream's release-it flow (npm publish + GitHub release); this repo doesn't publish to npm.
+CI (`.github/workflows/ci.yml`) runs `pnpm typecheck` and `pnpm test` on Node 20. `pnpm release` runs release-it: version bump, CHANGELOG, tag, push, GitHub release. npm publish is off (`.release-it.json`); a published GitHub release triggers `docker.yml`, which pushes the image to GHCR.
 
 ## Architecture
 
