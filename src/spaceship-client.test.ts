@@ -179,6 +179,80 @@ describe("SpaceshipClient", () => {
       const [, init] = mockFetch.mock.calls[1];
       expect(init.method).toBe("PUT");
     });
+
+    it("merge keeps other values at the same name+type and skips an identical one", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            { name: "_vercel", type: "TXT", value: "vc-domain-verify=app.example.com,aaa", ttl: 3600 },
+            { name: "_vercel", type: "TXT", value: "vc-domain-verify=api.example.com,bbb", ttl: 3600 },
+            { name: "@", type: "TXT", value: "v=spf1 -all", ttl: 3600 },
+          ],
+          total: 3,
+        }),
+      );
+      mockFetch.mockResolvedValueOnce(emptyResponse());
+      mockFetch.mockResolvedValueOnce(emptyResponse());
+
+      await client.saveDnsRecords(
+        "example.com",
+        [
+          { type: "TXT", name: "_vercel", value: "vc-domain-verify=www.example.com,ccc", ttl: 3600 },
+          { type: "TXT", name: "_vercel", value: "vc-domain-verify=api.example.com,bbb", ttl: 3600 },
+        ],
+        { merge: true },
+      );
+
+      const deleteBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+      expect(deleteBody).toHaveLength(2);
+      const putBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+      expect(putBody.items.map((i: { value: string }) => i.value).sort()).toEqual([
+        "vc-domain-verify=api.example.com,bbb",
+        "vc-domain-verify=app.example.com,aaa",
+        "vc-domain-verify=www.example.com,ccc",
+      ]);
+    });
+
+    it("restores deleted records and rethrows when the PUT fails", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ items: [{ name: "www", type: "CNAME", cname: "old.example.com", ttl: 3600 }], total: 1 }),
+      );
+      mockFetch.mockResolvedValueOnce(emptyResponse());
+      mockFetch.mockResolvedValueOnce(jsonResponse({ detail: "bad record" }, 422));
+      mockFetch.mockResolvedValueOnce(emptyResponse());
+
+      await expect(
+        client.saveDnsRecords("example.com", [{ type: "CNAME", name: "www", cname: "new.example.com", ttl: 300 }]),
+      ).rejects.toBeInstanceOf(SpaceshipApiError);
+
+      expect(mockFetch).toHaveBeenCalledTimes(4);
+      const [, restoreInit] = mockFetch.mock.calls[3];
+      expect(restoreInit.method).toBe("PUT");
+      expect(JSON.parse(restoreInit.body).items[0].cname).toBe("old.example.com");
+    });
+
+    it("names the deleted records when the restore also fails", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ items: [{ name: "www", type: "CNAME", cname: "old.example.com", ttl: 3600 }], total: 1 }),
+      );
+      mockFetch.mockResolvedValueOnce(emptyResponse());
+      mockFetch.mockResolvedValueOnce(jsonResponse({ detail: "bad record" }, 422));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ detail: "still bad" }, 422));
+
+      await expect(
+        client.saveDnsRecords("example.com", [{ type: "CNAME", name: "www", cname: "new.example.com", ttl: 300 }]),
+      ).rejects.toThrow(/restoring them also failed.*old\.example\.com/);
+    });
+
+    it("does not restore when nothing was deleted", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ items: [], total: 0 }));
+      mockFetch.mockResolvedValueOnce(jsonResponse({ detail: "bad record" }, 422));
+
+      await expect(
+        client.saveDnsRecords("example.com", [{ type: "A", name: "@", address: "1.2.3.4", ttl: 300 }]),
+      ).rejects.toBeInstanceOf(SpaceshipApiError);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("deleteDnsRecords", () => {

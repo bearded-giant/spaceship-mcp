@@ -10,10 +10,11 @@ const handleCreateRecord = async (
   domain: string,
   record: DnsRecord,
   formatSuccess: (normalizedDomain: string) => string,
+  ...saveOptions: [] | [{ merge?: boolean }]
 ): Promise<ReturnType<typeof toTextResult | typeof toErrorResult>> => {
   try {
     const normalizedDomain = normalizeDomain(domain);
-    await client.saveDnsRecords(normalizedDomain, [record]);
+    await client.saveDnsRecords(normalizedDomain, [record], ...saveOptions);
     return toTextResult(formatSuccess(normalizedDomain));
   } catch (error) {
     return toErrorResult(error);
@@ -140,21 +141,21 @@ export const registerDnsRecordCreatorTools = (server: McpServer, client: Spacesh
     {
       title: "Create TXT Record",
       description:
-        "Create a TXT record (text data) for a domain. Useful for SPF, DKIM, DMARC, verification, etc. " +
-        "WARNING: This replaces ALL existing TXT records with the same name — previous TXT records for this name will be overwritten, not merged. " +
-        "Overwriting TXT records can break email authentication (SPF/DKIM/DMARC) or domain verification. Use list_dns_records first to check for existing records.",
+        "Add a TXT record (text data) to a domain. Useful for SPF, DKIM, DMARC, and domain verification (e.g. Vercel's _vercel TXT). " +
+        "Existing TXT records with the same name are kept; the new value is added alongside them, and an identical value is not duplicated. " +
+        "To change or remove a TXT value, use save_dns_records or delete_dns_records after checking list_dns_records.",
       inputSchema: z.object({
         domain: z.string().min(4).max(255).describe("The domain name"),
         name: z.string().describe('Record name (subdomain, use "@" for root)'),
         value: z.string().describe('Text value (e.g. "v=spf1 include:example.com -all")'),
         ttl: z.number().int().min(60).max(86400).default(3600).describe("TTL in seconds"),
       }),
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
 
     },
     async ({ domain, name, value, ttl }) =>
       handleCreateRecord(client, domain, { name, type: "TXT", value, ttl },
-        (d) => `Successfully created TXT record for ${name}.${d}`),
+        (d) => `Successfully created TXT record for ${name}.${d}`, { merge: true }),
   );
 
   server.registerTool(

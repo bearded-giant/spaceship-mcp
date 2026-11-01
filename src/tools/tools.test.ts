@@ -470,7 +470,11 @@ describe("DNS Record Creator Tools", () => {
       })) as ToolResult;
 
       expectSuccess(result, "Successfully created TXT record");
-      expectSaveCalled("@", "TXT");
+      expect(client.saveDnsRecords).toHaveBeenCalledWith(
+        "example.com",
+        [expect.objectContaining({ name: "@", type: "TXT" })],
+        { merge: true },
+      );
     });
 
     it("returns error on failure", async () => {

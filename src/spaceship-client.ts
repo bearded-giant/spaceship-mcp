@@ -1,4 +1,5 @@
 import { TtlCache } from "./cache.js";
+import { extractComparableFields, recordFingerprint } from "./dns-utils.js";
 import type {
   DnsRecord,
   DnsRecordToDelete,
@@ -112,7 +113,11 @@ export class SpaceshipClient {
     );
   }
 
-  async saveDnsRecords(domain: string, records: DnsRecord[]): Promise<void> {
+  async saveDnsRecords(
+    domain: string,
+    records: DnsRecord[],
+    options: { merge?: boolean } = {},
+  ): Promise<void> {
     const pairs = new Map<string, string>();
     for (const r of records) {
       pairs.set(`${r.name.toLowerCase()}|${r.type.toUpperCase()}`, r.type.toUpperCase());
@@ -122,25 +127,44 @@ export class SpaceshipClient {
     const conflicting = existing.filter(
       (r) => pairs.has(`${r.name.toLowerCase()}|${r.type.toUpperCase()}`),
     );
-
-    if (conflicting.length > 0) {
-      const deletePayload = conflicting.map((record) => this.buildRecordPayload(record));
-      await this.request(`/v1/dns/records/${encodeURIComponent(domain)}`, {
-        method: "DELETE",
-        body: JSON.stringify(deletePayload),
+    const incoming = new Set(records.map((r) => recordFingerprint(r, false)));
+    const kept = options.merge
+      ? conflicting.filter((r) => !incoming.has(recordFingerprint(r, false)))
+      : [];
+    const path = `/v1/dns/records/${encodeURIComponent(domain)}`;
+    const put = (items: DnsRecord[]) =>
+      this.request(path, {
+        method: "PUT",
+        body: JSON.stringify({ force: true, items: items.map((r) => this.buildRecordPayload(r)) }),
       });
+
+    try {
+      if (conflicting.length > 0) {
+        await this.request(path, {
+          method: "DELETE",
+          body: JSON.stringify(conflicting.map((record) => this.buildRecordPayload(record))),
+        });
+      }
+
+      try {
+        await put([...records, ...kept]);
+      } catch (error) {
+        if (conflicting.length === 0) throw error;
+        // the delete already ran; put the old records back so a failed save never leaves the name empty
+        try {
+          await put(conflicting);
+        } catch {
+          throw new Error(
+            `Save failed after deleting existing records, and restoring them also failed. ` +
+              `Deleted records: ${JSON.stringify(conflicting.map(extractComparableFields))}`,
+            { cause: error },
+          );
+        }
+        throw error;
+      }
+    } finally {
+      this.cache.invalidate(`dns:${domain}`);
     }
-
-    const payload = {
-      force: true,
-      items: records.map((record) => this.buildRecordPayload(record)),
-    };
-
-    await this.request(`/v1/dns/records/${encodeURIComponent(domain)}`, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    });
-    this.cache.invalidate(`dns:${domain}`);
   }
 
   async deleteDnsRecords(domain: string, records: DnsRecordToDelete[]): Promise<void> {
