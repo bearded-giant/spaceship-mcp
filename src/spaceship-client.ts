@@ -56,8 +56,8 @@ export class SpaceshipClient {
   private readonly apiSecret: string;
   private credentials?: Promise<[string, string]>;
   private readonly retry: RetryOptions;
-  private readonly cache: TtlCache;
-  private readonly cachingEnabled: boolean;
+  private readonly cache = new TtlCache();
+  private readonly ttlOverrideMs?: number;
 
   constructor(
     apiKey: string,
@@ -70,12 +70,12 @@ export class SpaceshipClient {
     this.apiKey = apiKey;
     this.apiSecret = apiSecret;
     this.retry = retry;
-    this.cachingEnabled = cacheTtlMs !== 0;
-    this.cache = new TtlCache(cacheTtlMs ?? 120_000);
+    this.ttlOverrideMs = Number.isFinite(cacheTtlMs) ? cacheTtlMs : undefined;
   }
 
-  private async cachedRequest<T>(cacheKey: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
-    if (!this.cachingEnabled || ttlMs <= 0) return fetcher();
+  private async cachedRequest<T>(cacheKey: string, defaultTtlMs: number, fetcher: () => Promise<T>): Promise<T> {
+    const ttlMs = this.ttlOverrideMs ?? defaultTtlMs;
+    if (ttlMs <= 0) return fetcher();
 
     const cached = this.cache.get<T>(cacheKey);
     if (cached !== undefined) return cached;

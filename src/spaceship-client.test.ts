@@ -1169,6 +1169,39 @@ describe("SpaceshipClient", () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });
+
+    it("uses cacheTtlMs as the cache lifetime for every endpoint", async () => {
+      vi.useFakeTimers();
+      const shortTtl = new SpaceshipClient("test-key", "test-secret", "https://api.test.com", 1000);
+      mockFetch.mockImplementation(async () => jsonResponse({ items: [{ name: "example.com" }], total: 1 }));
+
+      await shortTtl.listAllDomains();
+      await shortTtl.listAllDomains();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(1500);
+      await shortTtl.listAllDomains();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
+
+    it("keeps per-endpoint lifetimes when cacheTtlMs is not a finite number", async () => {
+      vi.useFakeTimers();
+      const badTtl = new SpaceshipClient("test-key", "test-secret", "https://api.test.com", Number.NaN);
+      mockFetch.mockImplementation(async () => jsonResponse({ items: [{ name: "example.com" }], total: 1 }));
+
+      await badTtl.listAllDomains();
+      vi.advanceTimersByTime(60_000);
+      await badTtl.listAllDomains();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(300_000);
+      await badTtl.listAllDomains();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
   });
 
   describe("error handling with text response", () => {

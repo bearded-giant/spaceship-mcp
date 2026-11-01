@@ -303,7 +303,7 @@ Values starting with `op://` are read through the 1Password CLI (`op read`) on t
 
 | Variable | Description | Default |
 |---|---|---|
-| `SPACESHIP_CACHE_TTL` | Response cache lifetime in seconds. Set to `0` to disable caching. | `120` |
+| `SPACESHIP_CACHE_TTL` | Response cache lifetime in seconds, applied to every cached endpoint. Set to `0` to disable caching. | `120` for DNS records, domain details, and SellerHub listings; `300` for the domain list and contacts |
 | `SPACESHIP_MAX_RETRIES` | Maximum retry attempts for rate-limited (429) requests with exponential backoff. | `3` |
 | `SPACESHIP_TOOLSETS` | Comma-separated list of tool categories to enable (see [Toolset Filtering](#toolset-filtering)). | All toolsets |
 
