@@ -1,15 +1,43 @@
 # spaceship-mcp
 
-[![npm version](https://img.shields.io/npm/v/spaceship-mcp.svg)](https://www.npmjs.com/package/spaceship-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org/)
-[![CI](https://github.com/bartwaardenburg/spaceship-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/bartwaardenburg/spaceship-mcp/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/BartWaardenburg/6816ec0a7270dc8888a2e34f5bd5383b/raw/spaceship-mcp-coverage.json)](https://bartwaardenburg.github.io/spaceship-mcp/)
+[![CI](https://github.com/bearded-giant/spaceship-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/bearded-giant/spaceship-mcp/actions/workflows/ci.yml)
 [![MCP](https://img.shields.io/badge/MCP-compatible-purple.svg)](https://modelcontextprotocol.io)
 
 A community-built [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for the [Spaceship](https://spaceship.com) API. Manage domains, DNS records, contacts, marketplace listings, and more — all through natural language via any MCP-compatible AI client.
 
 > **Note:** This is an unofficial, community-maintained project and is not affiliated with or endorsed by Spaceship.
+
+This repo started from [BartWaardenburg/spaceship-mcp](https://github.com/BartWaardenburg/spaceship-mcp) (MIT) and isn't published to npm. The `npx -y spaceship-mcp` commands further down install the upstream package, which doesn't have the changes below, so run this one from source instead (see [Run From Source](#run-from-source)).
+
+| Change from upstream | Why |
+|---|---|
+| `create_txt_record` adds the value next to existing TXT records at that name and skips an exact duplicate | Upstream replaced every TXT at the name, so adding a second Vercel `_vercel` verification deleted the first one |
+| A save that the API rejects after the old records were deleted puts those records back | Upstream left the name empty when the write failed |
+| `SPACESHIP_API_KEY` and `SPACESHIP_API_SECRET` accept `op://` 1Password references, read on the first API call | Keeps the key out of client config files, and the server still starts without a 1Password prompt |
+| No npm update check at startup | The check pointed at the upstream package |
+
+## Run From Source
+
+```bash
+git clone https://github.com/bearded-giant/spaceship-mcp.git
+cd spaceship-mcp
+pnpm install
+pnpm build
+```
+
+Then register it with your client. For Claude Code, with the key stored in 1Password and only the DNS tools turned on:
+
+```bash
+claude mcp add -s user spaceship \
+  -e SPACESHIP_API_KEY=op://<vault>/spaceship-api/username \
+  -e SPACESHIP_API_SECRET=op://<vault>/spaceship-api/credential \
+  -e SPACESHIP_TOOLSETS=dns \
+  -- node <repo-root>/dist/index.js
+```
+
+Plain key values work too if you don't use 1Password.
 
 ## Add To Your Editor
 
@@ -168,11 +196,14 @@ Add the following to your Claude Desktop config file:
 ### Docker
 
 ```bash
+docker build -t spaceship-mcp .
 docker run -i --rm \
   -e SPACESHIP_API_KEY=your-key \
   -e SPACESHIP_API_SECRET=your-secret \
-  ghcr.io/bartwaardenburg/spaceship-mcp
+  spaceship-mcp
 ```
+
+`op://` references don't resolve inside the container, since it has no 1Password CLI, so pass plain values here.
 
 ### Generic MCP Server Config
 
@@ -511,7 +542,7 @@ Once connected, you can interact with the Spaceship API using natural language:
 - Support: [SUPPORT.md](SUPPORT.md)
 - Security reporting: [SECURITY.md](SECURITY.md)
 - Contributing guidelines: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Bug reports and feature requests: [Issues](https://github.com/bartwaardenburg/spaceship-mcp/issues)
+- Bug reports and feature requests: [Issues](https://github.com/bearded-giant/spaceship-mcp/issues)
 
 ## Development
 
@@ -546,7 +577,6 @@ src/
   prompts.ts                  # MCP Prompts (8 prompts, with argument auto-complete)
   credentials.ts              # Resolves op:// credential references via the 1Password CLI
   dns-utils.ts                # DNS record formatting utilities
-  update-checker.ts           # NPM update notifications
   tools/
     dns-records.ts            # List, save, delete DNS records
     dns-record-creators.ts    # 13 type-specific DNS record creation tools

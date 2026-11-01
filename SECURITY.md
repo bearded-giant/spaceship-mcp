@@ -8,7 +8,7 @@ Only the latest published release and the `main` branch are supported with secur
 
 Please do **not** open a public issue for suspected vulnerabilities.
 
-Report privately by email to: **bart@waardenburg.dev**
+Report privately through GitHub: [open a private security advisory](https://github.com/bearded-giant/spaceship-mcp/security/advisories/new).
 
 Include:
 - Affected repository and version/commit
