@@ -37,7 +37,7 @@ claude mcp add -s user spaceship \
   -- node <repo-root>/dist/index.js
 ```
 
-Plain key values work too if you don't use 1Password.
+Plain key values work too if you don't use 1Password. Or export `SPACESHIP_API_KEY` and `SPACESHIP_API_SECRET` in the shell that launches Claude Code and leave them out of the `-e` flags; the server inherits the client's environment, and an `-e` value overrides the shell's.
 
 ## Add To Your Editor
 
